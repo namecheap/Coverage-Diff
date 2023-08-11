@@ -1,8 +1,8 @@
 {
-  "name": "jest-coverage-diff",
+  "name": "coverage-diff",
   "version": "0.0.0",
   "private": true,
-  "description": "A github action to comment jest coverage diff on a PR",
+  "description": "A github action to comment coverage diff on a PR",
   "main": "src/main.ts",
   "scripts": {
     "build": "tsc",
@@ -15,7 +15,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/anuraag016/Jest-Coverage-Diff"
+    "url": "git+https://github.com/namecheap/Coverage-Diff"
   },
   "keywords": [
     "actions",
