@@ -24,26 +24,37 @@ async function run(): Promise<void> {
     const branchNameBase = github.context.payload.pull_request?.base.ref
     const branchNameHead = github.context.payload.pull_request?.head.ref
     const useSameComment = JSON.parse(core.getInput('useSameComment'))
+    const autorun = JSON.parse(core.getInput('autorun'))
     const commentIdentifier = `<!-- codeCoverageDiffComment -->`
+    let output = ''
     const deltaCommentIdentifier = `<!-- codeCoverageDeltaComment -->`
+    const oldCodeCoveragePath =
+      core.getInput('oldCodeCoveragePath') || 'coverage-summary.json'
+    const newCodeCoveragePath =
+      core.getInput('newCodeCoveragePath') || 'coverage-summary.json'
     let totalDelta = null
     if (rawTotalDelta !== null) {
       totalDelta = Number(rawTotalDelta)
     }
     let commentId = null
-    execSync(commandToRun)
-    const codeCoverageNew = <CoverageReport>(
-      JSON.parse(fs.readFileSync('coverage-summary.json').toString())
-    )
-    execSync('/usr/bin/git fetch')
-    execSync('/usr/bin/git stash')
-    execSync(`/usr/bin/git checkout --progress --force ${branchNameBase}`)
-    if (commandAfterSwitch) {
-      execSync(commandAfterSwitch)
+    if (autorun) {
+      execSync(commandToRun)
     }
-    execSync(commandToRun)
+    const codeCoverageNew = <CoverageReport>(
+      JSON.parse(fs.readFileSync(newCodeCoveragePath).toString())
+    )
+
+    if (autorun) {
+      execSync('/usr/bin/git fetch')
+      execSync('/usr/bin/git stash')
+      execSync(`/usr/bin/git checkout --progress --force ${branchNameBase}`)
+      if (commandAfterSwitch) {
+        execSync(commandAfterSwitch)
+      }
+      execSync(commandToRun)
+    }
     const codeCoverageOld = <CoverageReport>(
-      JSON.parse(fs.readFileSync('coverage-summary.json').toString())
+      JSON.parse(fs.readFileSync(oldCodeCoveragePath).toString())
     )
     const currentDirectory = execSync('pwd')
       .toString()
@@ -52,21 +63,21 @@ async function run(): Promise<void> {
       codeCoverageNew,
       codeCoverageOld
     )
-    let messageToPost = `## Test coverage results :test_tube: \n
+    let messageToPost = `### Test coverage results :test_tube: \n
     Code coverage diff between base branch:${branchNameBase} and head branch: ${branchNameHead} \n\n`
     const coverageDetails = diffChecker.getCoverageDetails(
       !fullCoverage,
       `${currentDirectory}/`
     )
     if (coverageDetails.length === 0) {
-      messageToPost =
+      messageToPost +=
         'No changes to code coverage between the base branch and the head branch'
     } else {
       messageToPost +=
-        'Status | File | % Stmts | % Branch | % Funcs | % Lines \n -----|-----|---------|----------|---------|------ \n'
+        '<details><summary>File details</summary>\n\nStatus | File | % Stmts | % Branch | % Funcs | % Lines \n -----|-----|---------|----------|---------|------ \n'
       messageToPost += coverageDetails.join('\n')
     }
-    messageToPost = `${commentIdentifier}\nCommit SHA:${commitSha}\n${messageToPost}`
+    messageToPost = `${commentIdentifier}\nCommit SHA:${commitSha}\n${messageToPost}\n\n</details>\n\n`
     if (useSameComment) {
       commentId = await findComment(
         githubClient,
@@ -76,6 +87,8 @@ async function run(): Promise<void> {
         commentIdentifier
       )
     }
+    output += messageToPost
+    core.setOutput('report', output)
     await createOrUpdateComment(
       commentId,
       githubClient,
@@ -122,6 +135,11 @@ async function createOrUpdateComment(
   messageToPost: string,
   prNumber: number
 ) {
+  const postComment: boolean = JSON.parse(core.getInput('postComment'))
+  if (!postComment) {
+    core.debug('Comment posting is disabled')
+    return
+  }
   if (commentId) {
     await githubClient.issues.updateComment({
       owner: repoOwner,

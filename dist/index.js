@@ -2039,43 +2039,53 @@ function run() {
             const branchNameBase = (_a = github.context.payload.pull_request) === null || _a === void 0 ? void 0 : _a.base.ref;
             const branchNameHead = (_b = github.context.payload.pull_request) === null || _b === void 0 ? void 0 : _b.head.ref;
             const useSameComment = JSON.parse(core.getInput('useSameComment'));
+            const autorun = JSON.parse(core.getInput('autorun'));
             const commentIdentifier = `<!-- codeCoverageDiffComment -->`;
+            let output = '';
             const deltaCommentIdentifier = `<!-- codeCoverageDeltaComment -->`;
+            const oldCodeCoveragePath = core.getInput('oldCodeCoveragePath') || 'coverage-summary.json';
+            const newCodeCoveragePath = core.getInput('newCodeCoveragePath') || 'coverage-summary.json';
             let totalDelta = null;
             if (rawTotalDelta !== null) {
                 totalDelta = Number(rawTotalDelta);
             }
             let commentId = null;
-            child_process_1.execSync(commandToRun);
-            const codeCoverageNew = (JSON.parse(fs_1.default.readFileSync('coverage-summary.json').toString()));
-            child_process_1.execSync('/usr/bin/git fetch');
-            child_process_1.execSync('/usr/bin/git stash');
-            child_process_1.execSync(`/usr/bin/git checkout --progress --force ${branchNameBase}`);
-            if (commandAfterSwitch) {
-                child_process_1.execSync(commandAfterSwitch);
+            if (autorun) {
+                child_process_1.execSync(commandToRun);
             }
-            child_process_1.execSync(commandToRun);
-            const codeCoverageOld = (JSON.parse(fs_1.default.readFileSync('coverage-summary.json').toString()));
+            const codeCoverageNew = (JSON.parse(fs_1.default.readFileSync(newCodeCoveragePath).toString()));
+            if (autorun) {
+                child_process_1.execSync('/usr/bin/git fetch');
+                child_process_1.execSync('/usr/bin/git stash');
+                child_process_1.execSync(`/usr/bin/git checkout --progress --force ${branchNameBase}`);
+                if (commandAfterSwitch) {
+                    child_process_1.execSync(commandAfterSwitch);
+                }
+                child_process_1.execSync(commandToRun);
+            }
+            const codeCoverageOld = (JSON.parse(fs_1.default.readFileSync(oldCodeCoveragePath).toString()));
             const currentDirectory = child_process_1.execSync('pwd')
                 .toString()
                 .trim();
             const diffChecker = new DiffChecker_1.DiffChecker(codeCoverageNew, codeCoverageOld);
-            let messageToPost = `## Test coverage results :test_tube: \n
+            let messageToPost = `### Test coverage results :test_tube: \n
     Code coverage diff between base branch:${branchNameBase} and head branch: ${branchNameHead} \n\n`;
             const coverageDetails = diffChecker.getCoverageDetails(!fullCoverage, `${currentDirectory}/`);
             if (coverageDetails.length === 0) {
-                messageToPost =
+                messageToPost +=
                     'No changes to code coverage between the base branch and the head branch';
             }
             else {
                 messageToPost +=
-                    'Status | File | % Stmts | % Branch | % Funcs | % Lines \n -----|-----|---------|----------|---------|------ \n';
+                    '<details><summary>File details</summary>\n\nStatus | File | % Stmts | % Branch | % Funcs | % Lines \n -----|-----|---------|----------|---------|------ \n';
                 messageToPost += coverageDetails.join('\n');
             }
-            messageToPost = `${commentIdentifier}\nCommit SHA:${commitSha}\n${messageToPost}`;
+            messageToPost = `${commentIdentifier}\nCommit SHA:${commitSha}\n${messageToPost}\n\n</details>\n\n`;
             if (useSameComment) {
                 commentId = yield findComment(githubClient, repoName, repoOwner, prNumber, commentIdentifier);
             }
+            output += messageToPost;
+            core.setOutput('report', output);
             yield createOrUpdateComment(commentId, githubClient, repoOwner, repoName, messageToPost, prNumber);
             // check if the test coverage is falling below delta/tolerance.
             if (diffChecker.checkIfTestCoverageFallsBelowDelta(delta, totalDelta)) {
@@ -2095,6 +2105,11 @@ function run() {
 }
 function createOrUpdateComment(commentId, githubClient, repoOwner, repoName, messageToPost, prNumber) {
     return __awaiter(this, void 0, void 0, function* () {
+        const postComment = JSON.parse(core.getInput('postComment'));
+        if (!postComment) {
+            core.debug('Comment posting is disabled');
+            return;
+        }
         if (commentId) {
             yield githubClient.issues.updateComment({
                 owner: repoOwner,
@@ -6748,6 +6763,7 @@ const increasedCoverageIcon = ':green_circle:';
 const decreasedCoverageIcon = ':red_circle:';
 const newCoverageIcon = ':sparkles: :new:';
 const removedCoverageIcon = ':x:';
+const notChangedIcon = ':heavy_minus_sign:';
 class DiffChecker {
     constructor(coverageReportNew, coverageReportOld) {
         var _a, _b, _c, _d, _e, _f, _g, _h;
@@ -6785,7 +6801,7 @@ class DiffChecker {
             }
             else {
                 if (!diffOnly) {
-                    returnStrings.push(`${key.replace(currentDirectory, '')} | ${this.diffCoverageReport[key].statements.newPct} | ${this.diffCoverageReport[key].branches.newPct} | ${this.diffCoverageReport[key].functions.newPct} | ${this.diffCoverageReport[key].lines.newPct}`);
+                    returnStrings.push(`${notChangedIcon} | ${key.replace(currentDirectory, '')} | ${this.diffCoverageReport[key].statements.newPct} | ${this.diffCoverageReport[key].branches.newPct} | ${this.diffCoverageReport[key].functions.newPct} | ${this.diffCoverageReport[key].lines.newPct}`);
                 }
             }
         }
