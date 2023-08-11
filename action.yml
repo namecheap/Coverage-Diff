@@ -8,6 +8,9 @@ inputs:
   fullCoverageDiff:
     description: 'get the full coverage with diff or only the diff'
     default: false
+  autorun:
+    description: Run provided command on both current and target branches
+    default: true
   runCommand:
     description: 'custom command to get json-summary'
     default: 'npx jest --coverage --coverageReporters="json-summary" --coverageDirectory="./"'
@@ -21,8 +24,18 @@ inputs:
     description: 'Difference between the old and final test coverage at the total level'
     default: null
   useSameComment:
-    description: 'While commenting on the PR update the exisiting comment'
+    description: 'While commenting on the PR update the existing comment'
     default: false
+  postComment:
+    description: 'Post comment to the PR'
+    default: true
+  oldCodeCoveragePath:
+    description: 'Path to old code coverage report in json-summary format'
+  newCodeCoveragePath:
+    description: 'Path to old code coverage report in json-summary format'
+outputs:
+  report:
+    description: Coverage report in markdown format
 branding:
   color: red
   icon: git-pull-request

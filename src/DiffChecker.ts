@@ -9,6 +9,7 @@ const increasedCoverageIcon = ':green_circle:'
 const decreasedCoverageIcon = ':red_circle:'
 const newCoverageIcon = ':sparkles: :new:'
 const removedCoverageIcon = ':x:'
+const notChangedIcon = ':heavy_minus_sign:'
 
 export class DiffChecker {
   private diffCoverageReport: DiffCoverageReport = {}
@@ -56,7 +57,7 @@ export class DiffChecker {
       } else {
         if (!diffOnly) {
           returnStrings.push(
-            `${key.replace(currentDirectory, '')} | ${
+            `${notChangedIcon} | ${key.replace(currentDirectory, '')} | ${
               this.diffCoverageReport[key].statements.newPct
             } | ${this.diffCoverageReport[key].branches.newPct} | ${
               this.diffCoverageReport[key].functions.newPct
